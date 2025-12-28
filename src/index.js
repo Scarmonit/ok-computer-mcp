@@ -11,6 +11,37 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
+/**
+ * Deep sanitization to prevent prototype pollution attacks.
+ * Recursively removes dangerous properties from nested objects.
+ */
+function deepSanitize(obj, depth = 0) {
+  const MAX_DEPTH = 10;
+  const DANGEROUS_PROPS = ['__proto__', 'constructor', 'prototype'];
+
+  if (depth > MAX_DEPTH) {
+    throw new Error('Object nesting too deep - possible prototype pollution attack');
+  }
+
+  if (typeof obj !== 'object' || obj === null) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => deepSanitize(item, depth + 1));
+  }
+
+  const sanitized = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (DANGEROUS_PROPS.includes(key)) {
+      console.warn('Blocked dangerous property:', key);
+      continue;
+    }
+    sanitized[key] = deepSanitize(value, depth + 1);
+  }
+  return sanitized;
+}
+
 class UniversalMCPServer {
   constructor() {
     this.server = new Server(
@@ -85,11 +116,52 @@ class UniversalMCPServer {
     });
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const tool = Object.values(this.tools).find(t => t.name === request.params.name);
-      if (!tool) {
-        throw new Error(`Tool not found: ${request.params.name}`);
+      const startTime = Date.now();
+      const toolName = request.params.name;
+
+      try {
+        const tool = Object.values(this.tools).find(t => t.name === toolName);
+        if (!tool) {
+          const availableTools = Object.values(this.tools).map(t => t.name).join(', ');
+          throw new Error(`Tool not found: ${toolName}. Available tools: ${availableTools}`);
+        }
+
+        // Deep sanitize arguments to prevent prototype pollution
+        const rawArgs = request.params.arguments || {};
+        let sanitizedArgs;
+        try {
+          sanitizedArgs = deepSanitize(rawArgs);
+        } catch (error) {
+          console.error('Input sanitization failed - possible attack:', error.message);
+          throw new Error('Invalid input format: ' + error.message);
+        }
+
+        const result = await tool.handler(sanitizedArgs);
+
+        // Track successful invocation
+        this.performanceMetrics.toolUsageCount[toolName] =
+          (this.performanceMetrics.toolUsageCount[toolName] || 0) + 1;
+        const elapsed = Date.now() - startTime;
+        this.performanceMetrics.averageResponseTime =
+          (this.performanceMetrics.averageResponseTime + elapsed) / 2;
+
+        return result;
+
+      } catch (error) {
+        // Log error with context
+        console.error(`Tool "${toolName}" failed:`, error.message);
+
+        // Track error metrics
+        this.performanceMetrics.errorCount = (this.performanceMetrics.errorCount || 0) + 1;
+        this.performanceMetrics.lastError = {
+          tool: toolName,
+          message: error.message,
+          timestamp: new Date().toISOString()
+        };
+
+        // Re-throw for MCP SDK to handle
+        throw error;
       }
-      return tool.handler(request.params.arguments || {});
     });
   }
 
@@ -366,8 +438,25 @@ ${args.code}
         handler: (args) => {
           const { interaction } = args;
           const timestamp = new Date().toISOString();
-          
-          // Store interaction
+
+          // Validate required fields
+          if (!interaction) {
+            throw new Error('Interaction object is required');
+          }
+
+          if (!interaction.userInput || typeof interaction.userInput !== 'string') {
+            throw new Error('Interaction must have valid userInput (string)');
+          }
+
+          if (!interaction.aiResponse || typeof interaction.aiResponse !== 'string') {
+            throw new Error('Interaction must have valid aiResponse (string)');
+          }
+
+          if (typeof interaction.success !== 'undefined' && typeof interaction.success !== 'boolean') {
+            throw new Error('Interaction success must be a boolean if provided');
+          }
+
+          // Store validated interaction
           this.interactionHistory.push({
             ...interaction,
             timestamp,
@@ -903,9 +992,41 @@ ${improvements.length > 0 ? improvements.map(imp => `• ${imp}`).join('\n') : '
               if (!task) {
                 return { content: [{ type: 'text', text: '❌ Task information required' }], isError: true };
               }
-              
+
+              // Validate task structure
+              if (!task.name || typeof task.name !== 'string') {
+                console.error('Invalid task: missing or non-string name', { task });
+                return { content: [{ type: 'text', text: '❌ Task name must be a non-empty string' }], isError: true };
+              }
+
+              if (task.efficiency !== undefined && typeof task.efficiency !== 'number') {
+                console.error('Invalid task: non-numeric efficiency', { task });
+                return { content: [{ type: 'text', text: '❌ Task efficiency must be a number (0-1)' }], isError: true };
+              }
+
+              if (task.efficiency !== undefined && (task.efficiency < 0 || task.efficiency > 1)) {
+                console.error('Invalid task: efficiency out of range', { task });
+                return { content: [{ type: 'text', text: '❌ Task efficiency must be between 0 and 1' }], isError: true };
+              }
+
+              // Validate toolsUsed if present
+              if (task.toolsUsed) {
+                if (!Array.isArray(task.toolsUsed)) {
+                  console.error('Invalid task: toolsUsed not an array', { task });
+                  return { content: [{ type: 'text', text: '❌ toolsUsed must be an array of strings' }], isError: true };
+                }
+
+                for (const tool of task.toolsUsed) {
+                  if (typeof tool !== 'string') {
+                    console.error('Invalid tool in toolsUsed array', { task, invalidTool: tool });
+                    return { content: [{ type: 'text', text: `❌ All tools must be strings, found ${typeof tool}` }], isError: true };
+                  }
+                }
+              }
+
+              // Now update metrics with validated data
               this.productivityMetrics.tasksCompleted++;
-              
+
               // Track tool effectiveness
               if (task.toolsUsed) {
                 task.toolsUsed.forEach(tool => {
@@ -918,10 +1039,10 @@ ${improvements.length > 0 ? improvements.map(imp => `• ${imp}`).join('\n') : '
                   }
                 });
               }
-              
+
               // Update efficiency score
               if (task.efficiency) {
-                this.productivityMetrics.efficiencyScore = 
+                this.productivityMetrics.efficiencyScore =
                   (this.productivityMetrics.efficiencyScore * 0.9) + (task.efficiency * 0.1);
               }
               
@@ -974,7 +1095,10 @@ ${improvements.length > 0 ? improvements.map(imp => `• ${imp}`).join('\n') : '
               
             case 'get_metrics':
               const toolStats = Object.entries(this.productivityMetrics.toolEffectiveness)
-                .map(([tool, stats]) => `${tool}: ${stats.success}/${stats.uses} (${(stats.success/stats.uses*100).toFixed(1)}% success)`)
+                .map(([tool, stats]) => {
+                  const successRate = stats.uses > 0 ? (stats.success / stats.uses * 100).toFixed(1) : 'N/A';
+                  return `${tool}: ${stats.success}/${stats.uses} (${successRate}% success)`;
+                })
                 .join('\n');
               
               return {
@@ -1065,9 +1189,12 @@ ${improvements.length > 0 ? improvements.map(imp => `• ${imp}`).join('\n') : '
             
             if (Object.keys(effectiveness).length > 0) {
               const effectivenessStats = Object.entries(effectiveness)
-                .map(([tool, stats]) => `${tool}: ${(stats.success/stats.uses*100).toFixed(1)}% success rate`)
+                .map(([tool, stats]) => {
+                  const rate = stats.uses > 0 ? (stats.success / stats.uses * 100).toFixed(1) : 0;
+                  return `${tool}: ${rate}% success rate`;
+                })
                 .join('\n');
-              
+
               analysis.push(`🎯 Tool Effectiveness:\n${effectivenessStats}`);
             } else {
               analysis.push("🎯 Tool Effectiveness: No effectiveness data available");
@@ -1124,24 +1251,69 @@ ${recommendations.join('\n')}
 
   startAutoOptimization() {
     if (!this.autoOptimization.enabled) return;
-    
-    setInterval(() => {
-      this.performAutoOptimization();
+
+    // Wrap async call with catch to prevent unhandled rejections
+    setInterval(async () => {
+      try {
+        await this.performAutoOptimization();
+      } catch (error) {
+        // Safety net - should never happen due to internal error handling
+        console.error('Unexpected error in auto-optimization interval:', error.message);
+      }
     }, this.autoOptimization.interval);
-    
+
     // Also run immediately on startup
-    setTimeout(() => this.performAutoOptimization(), 5000);
+    setTimeout(async () => {
+      try {
+        await this.performAutoOptimization();
+      } catch (error) {
+        console.error('Initial auto-optimization failed:', error.message);
+      }
+    }, 5000);
   }
 
-  performAutoOptimization() {
+  async performAutoOptimization() {
     if (!this.autoOptimization.enabled) return;
-    
+
     // Auto-optimize with balanced priority
     try {
-      const result = this.tools.autoOptimize.handler({ priority: 'balanced', force: false });
-      console.error('🚀 Auto-optimization performed:', result.content[0].text.substring(0, 100) + '...');
+      // Await the promise from the handler
+      const result = await this.tools.autoOptimize.handler({ priority: 'balanced', force: false });
+
+      // Validate result structure before accessing
+      if (!result || typeof result !== 'object') {
+        throw new Error(`Auto-optimization returned invalid result type: ${typeof result}`);
+      }
+
+      const resultText = result?.content?.[0]?.text;
+      if (typeof resultText === 'string') {
+        console.error('🚀 Auto-optimization performed:', resultText.substring(0, 100) + '...');
+      } else {
+        console.error('⚠️ Auto-optimization returned unexpected result structure:', JSON.stringify(result));
+      }
+
+      // Track successful optimization
+      this.performanceMetrics.lastSuccessfulOptimization = Date.now();
+      this.performanceMetrics.optimizationSuccessCount =
+        (this.performanceMetrics.optimizationSuccessCount || 0) + 1;
+
     } catch (error) {
-      console.error('❌ Auto-optimization failed:', error.message);
+      // Track failure for monitoring - don't silently swallow
+      this.performanceMetrics.optimizationFailureCount =
+        (this.performanceMetrics.optimizationFailureCount || 0) + 1;
+      this.performanceMetrics.lastOptimizationError = {
+        message: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      };
+
+      console.error('❌ Auto-optimization failed:', error.message, error.stack);
+
+      // Disable auto-optimization after repeated failures
+      if (this.performanceMetrics.optimizationFailureCount > 5) {
+        console.error('⚠️ Auto-optimization disabled due to repeated failures');
+        this.autoOptimization.enabled = false;
+      }
     }
   }
 
