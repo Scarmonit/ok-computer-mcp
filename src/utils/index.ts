@@ -4,3 +4,4 @@
 
 export * from './sanitize.js';
 export * from './validation.js';
+export * from './metrics.js';

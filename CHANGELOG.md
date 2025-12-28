@@ -5,6 +5,141 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2024-12-28
+
+### Added
+- **npm Package Publishing** - Package now available on npmjs.com
+  - Install globally: `npm install -g ok-computer-mcp`
+  - Use as CLI: `npx ok-computer-mcp`
+  - Add to MCP config for Claude Desktop
+
+### Changed
+- **Package Structure** - Optimized for npm distribution
+  - `main` points to compiled `dist/index.js`
+  - `types` points to TypeScript declarations
+  - `bin` enables CLI usage via npx
+  - `files` field limits published files to dist/, README.md, LICENSE
+
+### CI/CD
+- **npm Publish Workflow** - Automated publishing on GitHub release
+  - Triggers on release publication
+  - Builds, tests, then publishes with provenance
+  - Requires NPM_TOKEN secret in repository settings
+
+### Installation
+
+```bash
+# Global install
+npm install -g ok-computer-mcp
+
+# Or use directly with npx
+npx ok-computer-mcp
+
+# Or add to project
+npm install ok-computer-mcp
+```
+
+---
+
+## [1.4.0] - 2024-12-27
+
+### Changed
+- **FULL STRICT MODE** - TypeScript strict mode now enabled
+  - `strict: true` in tsconfig.json
+  - `noImplicitReturns: true` - Ensures all code paths return a value
+  - `noFallthroughCasesInSwitch: true` - Prevents accidental switch fallthrough
+
+### Verified
+- **Zero strict mode errors** - Codebase was already strict-mode compatible
+- **Zero `any` types** - Full type safety across all modules
+- **All 91 tests passing** - No regressions from strict mode
+
+### TypeScript Migration Complete 🎉
+This release marks the completion of the TypeScript migration roadmap:
+- v1.1.0: TypeScript foundation, core types, utilities
+- v1.2.0: Full TypeScript tool handlers with factory pattern
+- v1.3.0: ServerStateManager class, shared utilities, type safety fixes
+- v1.4.0: Full strict mode enabled (this release)
+
+The codebase now has complete type safety with strict null checks, strict property initialization, and all other strict mode features enabled.
+
+---
+
+## [1.3.0] - 2024-12-27
+
+### Added
+- **ServerStateManager Class** - Centralized state management with encapsulation
+  - Private state storage with controlled access
+  - Validated mutations to prevent state corruption
+  - Bounded collections to prevent memory leaks (configurable limits)
+  - Helper methods for common calculations
+- **Shared Metrics Utilities** - `src/utils/metrics.ts`
+  - `calculateSuccessRate()` - Calculate success rate from totals
+  - `formatPercentage()` - Format decimals as percentages
+  - `formatToolStats()` - Format tool effectiveness statistics
+
+### Changed
+- Main server uses `ServerStateManager` instead of plain `ServerState` interface
+- Removed duplicate `analyzeEfficiency()` method - now uses state manager
+- Removed unsafe type casts (`as unknown as`) in tool definitions
+- Input validation added to `adapt-behavior.ts`
+
+### Fixed
+- **Type Safety** - Removed `as unknown as` casts, using proper `InputSchema` type
+- **Input Validation** - Added validation for `adaptation` object in adapt-behavior handler
+- **Code Duplication** - Extracted shared metrics calculations to utility module
+
+### Architecture
+New state management:
+- `src/state/ServerStateManager.ts` - Full state manager class with methods
+- `src/state/index.ts` - State module barrel export
+
+### Tests
+- All 91 tests passing with new state manager
+- Backward compatible with existing tool factory pattern
+
+---
+
+## [1.2.0] - 2024-12-27
+
+### Added
+- **Full TypeScript Tool Handlers** - All 9 tool handlers converted to TypeScript
+- Modular tool architecture in `src/tools/` directory
+- Factory pattern for stateful handlers with dependency injection
+
+### Changed
+- Tool handlers extracted from monolithic `src/index.js` to individual files
+- Stateful handlers use factory pattern for cleaner state management
+- Main server (`src/index.ts`) now uses TypeScript tool handlers
+
+### Types
+New and improved TypeScript types:
+- **ServerState** - Centralized state interface for all metrics and knowledge
+- **Tool Handler Types** - Specific input types for each tool handler
+- **MCP SDK Compatibility** - Added index signatures for SDK type compatibility
+- **Discriminated Union** - `ValidationResult<T>` with `ValidationSuccess<T>` and `ValidationFailure`
+- **Type Guards** - `isFactSource()`, `isCommunicationStyle()`, `isValidConfidence()`, `isGoalPriority()`
+
+### Architecture
+Tool handler organization:
+- `src/tools/state.ts` - ServerState interface and initial state factory
+- `src/tools/echo.ts` - Echo handler (stateless)
+- `src/tools/system-info.ts` - System info handler (stateless)
+- `src/tools/learn-from-interaction.ts` - Learning handler (stateful)
+- `src/tools/get-learning-insights.ts` - Insights handler (stateful)
+- `src/tools/adapt-behavior.ts` - Behavior adaptation handler (stateful)
+- `src/tools/optimize-performance.ts` - Performance optimization (stateful)
+- `src/tools/auto-optimize.ts` - Auto-optimization handler (stateful)
+- `src/tools/track-productivity.ts` - Productivity tracking (stateful)
+- `src/tools/enhance-tool-usage.ts` - Tool usage analysis (stateful)
+- `src/tools/index.ts` - Barrel export for all handlers
+
+### Tests
+- All 91 tests passing with TypeScript handlers
+- No changes required to existing test suite
+
+---
+
 ## [1.1.0] - 2024-12-27
 
 ### Added

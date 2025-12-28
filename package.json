@@ -1,24 +1,47 @@
 {
   "name": "ok-computer-mcp",
-  "version": "1.1.0",
-  "description": "Self-improving MCP server with security hardening",
-  "main": "src/index.js",
+  "version": "1.5.0",
+  "description": "A self-improving MCP server with learning capabilities, TypeScript strict mode, and security hardening",
+  "main": "dist/index.js",
+  "types": "dist/types/index.d.ts",
   "type": "module",
+  "bin": {
+    "ok-computer-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node dist/index.js",
     "dev": "node --watch src/index.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "node test-lookup-fix.js && node test-security-fixes.js && node test-coverage-gaps.js"
+    "test": "node test-lookup-fix.js && node test-security-fixes.js && node test-coverage-gaps.js",
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
     "mcp",
-    "model-control-protocol",
+    "model-context-protocol",
     "ai",
-    "server"
+    "server",
+    "learning",
+    "self-improving",
+    "typescript",
+    "claude",
+    "anthropic"
   ],
-  "author": "AI Assistant",
+  "author": "Scarmonit",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Scarmonit/ok-computer-mcp.git"
+  },
+  "homepage": "https://github.com/Scarmonit/ok-computer-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/Scarmonit/ok-computer-mcp/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0"
   },

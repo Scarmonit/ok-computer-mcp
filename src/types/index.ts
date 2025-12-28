@@ -10,6 +10,11 @@
 // =============================================================================
 
 /**
+ * JSON Schema types supported by MCP
+ */
+export type JSONSchemaType = 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array' | 'null';
+
+/**
  * Content block returned in tool results
  */
 export interface TextContent {
@@ -19,30 +24,32 @@ export interface TextContent {
 
 /**
  * Standard result returned by all tool handlers
+ * Index signature required for MCP SDK compatibility
  */
 export interface ToolResult {
   readonly content: readonly TextContent[];
   readonly isError?: boolean;
+  readonly [key: string]: unknown;
 }
 
 /**
  * JSON Schema for tool input validation
  */
 export interface InputSchema {
-  type: 'object';
-  properties: Record<string, PropertySchema>;
-  required?: string[];
+  readonly type: 'object';
+  readonly properties: Readonly<Record<string, PropertySchema>>;
+  readonly required?: readonly string[];
 }
 
 export interface PropertySchema {
-  type: string;
-  description?: string;
-  enum?: string[];
-  default?: unknown;
-  properties?: Record<string, PropertySchema>;
-  items?: PropertySchema;
-  minimum?: number;
-  maximum?: number;
+  readonly type: JSONSchemaType;
+  readonly description?: string;
+  readonly enum?: readonly string[];
+  readonly default?: unknown;
+  readonly properties?: Readonly<Record<string, PropertySchema>>;
+  readonly items?: PropertySchema;
+  readonly minimum?: number;
+  readonly maximum?: number;
 }
 
 /**
@@ -52,7 +59,7 @@ export interface MCPTool<TInput = unknown> {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: InputSchema;
-  handler: (args: TInput) => ToolResult | Promise<ToolResult>;
+  readonly handler: (args: TInput) => ToolResult | Promise<ToolResult>;
 }
 
 /**
@@ -61,8 +68,8 @@ export interface MCPTool<TInput = unknown> {
 export interface MCPPrompt<TArgs = unknown> {
   readonly name: string;
   readonly description: string;
-  readonly arguments?: PromptArgument[];
-  handler: (args: TArgs) => PromptResult;
+  readonly arguments?: readonly PromptArgument[];
+  readonly handler: (args: TArgs) => PromptResult;
 }
 
 export interface PromptArgument {
@@ -71,15 +78,20 @@ export interface PromptArgument {
   readonly required?: boolean;
 }
 
+/**
+ * Result from prompt handler
+ * Index signature required for MCP SDK compatibility
+ */
 export interface PromptResult {
-  messages: PromptMessage[];
+  readonly messages: readonly PromptMessage[];
+  readonly [key: string]: unknown;
 }
 
 export interface PromptMessage {
-  role: 'user' | 'assistant';
-  content: {
-    type: 'text';
-    text: string;
+  readonly role: 'user' | 'assistant';
+  readonly content: {
+    readonly type: 'text';
+    readonly text: string;
   };
 }
 
@@ -94,10 +106,15 @@ export interface MCPResource {
   readonly content: ResourceContent;
 }
 
+/**
+ * Resource content returned by resource handlers
+ * Index signature required for MCP SDK compatibility
+ */
 export interface ResourceContent {
-  uri: string;
-  mimeType: string;
-  text: string;
+  readonly uri: string;
+  readonly mimeType: string;
+  readonly text: string;
+  readonly [key: string]: unknown;
 }
 
 // =============================================================================
@@ -116,13 +133,17 @@ export interface ErrorRecord {
 
 /**
  * Performance metrics tracked by the server
+ * @property userSatisfaction - Score from 0 to 1
+ * @property productivityScore - Score from 0 to 1
  */
 export interface PerformanceMetrics {
   totalInteractions: number;
   successfulInteractions: number;
   averageResponseTime: number;
+  /** Score from 0 to 1 */
   userSatisfaction: number;
   toolUsageCount: Record<string, number>;
+  /** Score from 0 to 1 */
   productivityScore: number;
   lastOptimization: string | null;
   errorCount: number;
@@ -164,9 +185,11 @@ export interface ProductivityGoal {
 
 /**
  * Productivity metrics tracked by the server
+ * @property efficiencyScore - Score from 0 to 1
  */
 export interface ProductivityMetrics {
   tasksCompleted: number;
+  /** Score from 0 to 1 */
   efficiencyScore: number;
   toolEffectiveness: Record<string, ToolStats>;
   userGoals: ProductivityGoal[];
@@ -192,10 +215,12 @@ export type FactSource =
 
 /**
  * A fact stored in the knowledge base
+ * @property confidence - Score from 0 to 1
  */
 export interface Fact {
   readonly id: string;
   readonly content: string;
+  /** Score from 0 to 1 */
   readonly confidence: number;
   readonly source: FactSource;
   readonly timestamp?: string;
@@ -203,10 +228,12 @@ export interface Fact {
 
 /**
  * A learned pattern in the knowledge base
+ * @property effectiveness - Score from 0 to 1
  */
 export interface Pattern {
   readonly pattern: string;
   readonly response_type: string;
+  /** Score from 0 to 1 */
   readonly effectiveness: number;
 }
 
@@ -247,9 +274,9 @@ export type LearningRate =
   | 'aggressive';
 
 /**
- * User preferences stored in knowledge base
+ * Core user preferences (typed)
  */
-export interface Preferences {
+export interface CorePreferences {
   communicationStyle: CommunicationStyle;
   responseDetailLevel: ResponseDetailLevel;
   learn_from_feedback: boolean;
@@ -258,7 +285,13 @@ export interface Preferences {
   tool_usage_priority: boolean;
   proactivityLevel?: ProactivityLevel;
   learningRate?: LearningRate;
-  [key: string]: unknown; // Allow custom preferences
+}
+
+/**
+ * User preferences with custom extensions
+ */
+export interface Preferences extends CorePreferences {
+  customPreferences?: Record<string, unknown>;
 }
 
 /**
@@ -286,11 +319,16 @@ export type OptimizationPriority =
 
 /**
  * Target metrics for auto-optimization
+ * All scores are from 0 to 1
  */
 export interface OptimizationTargets {
+  /** Minimum success rate (0-1) */
   readonly minSuccessRate: number;
+  /** Maximum response time in milliseconds */
   readonly maxResponseTime: number;
+  /** Minimum tool usage rate (0-1) */
   readonly minToolUsage: number;
+  /** Target productivity score (0-1) */
   readonly targetProductivity: number;
 }
 
@@ -299,6 +337,7 @@ export interface OptimizationTargets {
  */
 export interface AutoOptimizationConfig {
   enabled: boolean;
+  /** Optimization interval in milliseconds */
   readonly interval: number;
   lastRun: number;
   readonly priorityAreas: readonly OptimizationPriority[];
@@ -363,6 +402,7 @@ export interface AutoOptimizeInput {
 
 /**
  * Task input for track_productivity
+ * @property efficiency - Score from 0 to 1
  */
 export interface TaskInput {
   name: string;
@@ -370,6 +410,7 @@ export interface TaskInput {
   toolsUsed?: string[];
   duration?: number;
   success?: boolean;
+  /** Score from 0 to 1 */
   efficiency?: number;
 }
 
@@ -401,6 +442,24 @@ export interface EnhanceToolUsageInput {
 }
 
 // =============================================================================
+// Echo and System Info Input Types
+// =============================================================================
+
+/**
+ * Input for echo tool
+ */
+export interface EchoInput {
+  message: string;
+}
+
+/**
+ * Input for system_info tool
+ */
+export interface SystemInfoInput {
+  detail?: 'basic' | 'full';
+}
+
+// =============================================================================
 // Utility Types
 // =============================================================================
 
@@ -413,15 +472,16 @@ export interface InteractionEntry {
   readonly timestamp: string;
   readonly success?: boolean;
   readonly feedback?: string;
+  readonly id?: string;
 }
 
 /**
  * Feedback data entry
  */
 export interface FeedbackEntry {
-  readonly content: string;
-  readonly sentiment: 'positive' | 'negative' | 'neutral';
+  readonly feedback: string;
   readonly timestamp: string;
+  readonly relatedInteraction?: unknown;
 }
 
 /**
@@ -453,4 +513,41 @@ export function createErrorResult(text: string): ToolResult {
     content: [{ type: 'text', text }],
     isError: true
   };
+}
+
+// =============================================================================
+// Type Guards
+// =============================================================================
+
+/**
+ * Check if a value is a valid FactSource
+ */
+export function isFactSource(value: unknown): value is FactSource {
+  const sources: FactSource[] = [
+    'pattern_analysis', 'metrics_analysis', 'performance_analysis',
+    'system_analysis', 'user_feedback', 'context_analysis',
+    'behavioral_adaptation', 'automatic_optimization'
+  ];
+  return typeof value === 'string' && sources.includes(value as FactSource);
+}
+
+/**
+ * Check if a value is a valid CommunicationStyle
+ */
+export function isCommunicationStyle(value: unknown): value is CommunicationStyle {
+  return ['formal', 'casual', 'technical', 'friendly', 'professional'].includes(value as string);
+}
+
+/**
+ * Check if a value is a valid confidence score (0-1)
+ */
+export function isValidConfidence(value: unknown): value is number {
+  return typeof value === 'number' && !isNaN(value) && value >= 0 && value <= 1;
+}
+
+/**
+ * Check if a value is a valid GoalPriority
+ */
+export function isGoalPriority(value: unknown): value is GoalPriority {
+  return ['low', 'medium', 'high'].includes(value as string);
 }

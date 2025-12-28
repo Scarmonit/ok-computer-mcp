@@ -1,0 +1,28 @@
+# Source files (dist is published)
+src/
+
+# Tests
+test-*.js
+*.test.ts
+*.spec.ts
+
+# Config files
+tsconfig.json
+.eslintrc*
+.prettierrc*
+
+# CI/CD
+.github/
+
+# Dev files
+.env*
+*.log
+node_modules/
+
+# Documentation source (README.md included via files)
+MIGRATION.md
+CHANGELOG.md
+
+# Git
+.git/
+.gitignore
