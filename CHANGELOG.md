@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2024-12-27
+
+### Added
+- **TypeScript Foundation** - Gradual TypeScript migration begins
+- Core type definitions in `src/types/index.ts`
+- Utility modules converted to TypeScript:
+  - `src/utils/sanitize.ts` - Deep sanitization with type guards
+  - `src/utils/validation.ts` - Type-safe input validation
+  - `src/utils/index.ts` - Barrel export
+
+### Types
+New TypeScript interfaces and types:
+- **MCP Protocol Types**: `TextContent`, `ToolResult`, `MCPTool`, `MCPPrompt`, `MCPResource`
+- **Metrics Types**: `PerformanceMetrics`, `ProductivityMetrics`, `ErrorRecord`
+- **Knowledge Types**: `KnowledgeBase`, `Fact`, `Pattern`, `Preferences`
+- **Input Types**: `LearnFromInteractionInput`, `AdaptBehaviorInput`, `OptimizePerformanceInput`
+- **Validation Types**: `ValidationResult<T>` with type-safe validators
+
+### CI/CD
+- Added TypeScript type checking to CI pipeline
+- New `typecheck` job runs `tsc --noEmit`
+- Builds verified across Node.js 18, 20, 22
+
+### Developer Experience
+- `npm run build` - Compile TypeScript to JavaScript
+- `npm run typecheck` - Type check without emitting
+- `allowJs: true` enables gradual migration
+
+---
+
 ## [1.0.1] - 2024-12-27
 
 ### Added

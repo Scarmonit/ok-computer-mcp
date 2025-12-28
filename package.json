@@ -1,15 +1,22 @@
 {
   "name": "ok-computer-mcp",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Self-improving MCP server with security hardening",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "test": "node test-lookup-fix.js && node test-security-fixes.js && node test-coverage-gaps.js"
   },
-  "keywords": ["mcp", "model-control-protocol", "ai", "server"],
+  "keywords": [
+    "mcp",
+    "model-control-protocol",
+    "ai",
+    "server"
+  ],
   "author": "AI Assistant",
   "license": "MIT",
   "dependencies": {
@@ -17,5 +24,9 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "typescript": "^5.9.3"
   }
 }
