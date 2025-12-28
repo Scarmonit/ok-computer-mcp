@@ -27,11 +27,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run lookup tests
+      - name: Run lookup tests (17 tests)
         run: node test-lookup-fix.js
 
-      - name: Run security tests
+      - name: Run security tests (22 tests)
         run: node test-security-fixes.js
+
+      - name: Run coverage gap tests (52 tests)
+        run: node test-coverage-gaps.js
 
   security:
     runs-on: ubuntu-latest
